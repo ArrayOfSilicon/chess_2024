@@ -2,3 +2,11 @@ body {
     background: black !important;
     color: white !important;
   }
+
+#timer {
+  background: white;
+  padding: 4px 8px;
+  color: black;
+  border-radius: 5px;
+  width: fit-content;
+}

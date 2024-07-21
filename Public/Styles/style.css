@@ -5,6 +5,11 @@
     top: 2vh;
 }
 
+#move_history {
+    display: flex;
+    flex-wrap: wrap;
+}
+
 #wait_para {
     font-size: 30px;
     margin-left: auto;

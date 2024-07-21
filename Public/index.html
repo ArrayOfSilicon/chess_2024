@@ -12,9 +12,7 @@
       crossorigin="anonymous"
       referrerpolicy="no-referrer"
     ></script>
-    <style>
-      
-    </style>
+    <style></style>
     <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
@@ -31,7 +29,7 @@
       integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
       crossorigin="anonymous"
     ></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script src="./ChessJS/chess.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js.map"></script>
     <script src="./Assets/chessboard/js/chessboard-1.0.0.js"></script>
     <link
@@ -39,6 +37,7 @@
       href="./Assets/chessboard/css/chessboard-1.0.0.css"
     />
   </head>
+
   <body>
     <span id="tp" class="fw-bold">Total Players :- 0</span>
     <div id="gameSetup" class="container d-flex gap-4 mt-5">
@@ -64,8 +63,10 @@
         </div>
       </div>
     </div>
+    <div id="move_history"></div>
     <p class="d-none" id="wait_para">Waiting for opponent</p>
     <script>
+      let cPlayer;
       var board = null;
       var game = new Chess();
       var whiteSquareGrey = "#a9a9a9";
@@ -87,6 +88,10 @@
       }
 
       function onDragStart(source, piece) {
+        if (game.turn() != cPlayer) {
+          return false;
+        }
+
         // do not pick up pieces if the game is over
         if (game.game_over()) return false;
 
@@ -100,6 +105,10 @@
       }
 
       function onDrop(source, target) {
+        if (game.turn() != cPlayer) {
+          return false;
+        }
+
         removeGreySquares();
 
         // see if the move is legal
@@ -111,9 +120,14 @@
 
         // illegal move
         if (move === null) return "snapback";
+        socket.emit("SNYC_MOVE", game.fen(), game.turn());
       }
 
       function onMouseoverSquare(square, piece) {
+        if (game.turn() != cPlayer) {
+          return false;
+        }
+
         // get list of possible moves for this square
         var moves = game.moves({
           square: square,
@@ -133,10 +147,18 @@
       }
 
       function onMouseoutSquare(square, piece) {
+        if (game.turn() != cPlayer) {
+          return false;
+        }
+
         removeGreySquares();
       }
 
       function onSnapEnd() {
+        if (game.turn() != cPlayer) {
+          return false;
+        }
+
         board.position(game.fen());
       }
 
@@ -153,8 +175,15 @@
     </script>
 
     <script>
+      function initializeGame(orientation) {
+        board = Chessboard("board1", config);
+        board.orientation(orientation);
+      }
+
+      let currentMatchTime = 0;
       function match_request(duration) {
         const gameSetupElement = document.getElementById("gameSetup");
+        currentMatchTime = duration;
         const wait_para_element = document.getElementById("wait_para");
         gameSetupElement.classList.add("d-none");
         wait_para_element.classList.remove("d-none");
@@ -162,7 +191,6 @@
       }
 
       function updateTotalPlayers(tpInt) {
-        console.log(tpInt);
         const totalPlayerEl = document.getElementById("tp");
         if (totalPlayerEl) {
           totalPlayerEl.innerHTML = "Total Players :- " + tpInt;
@@ -173,15 +201,71 @@
         autoConnect: true,
       });
 
-      socket.on("MATCH_START", function () {
+      socket.on("MATCH_START", function (player) {
+        cPlayer = player;
+        initializeGame(player === "w" ? "white" : "black");
         const gameSetupElement = document.getElementById("gameSetup");
         const wait_para_element = document.getElementById("wait_para");
         const matchTimerSelectorElement =
           document.getElementById("matchTimerSelector");
         gameSetupElement.classList.remove("d-none");
         wait_para_element.classList.add("d-none");
-        matchTimerSelectorElement.classList.add("d-none");
+        const youareplayingas =
+          "You are playing as " + (player == "w" ? "White" : "Black");
+        matchTimerSelectorElement.innerHTML =
+          '<p class="fs-4">' +
+          youareplayingas +
+          '</p><p id="timer" class="fs-1">' +
+          currentMatchTime +
+          ":00</p>";
+        if(player != 'w')
+        {
+          startTimer(true);
+        }
       });
+
+      let no = 2;
+      socket.on("SNYC_MOVE", function (state, turn) {
+        game.setTurn(turn);
+        if (turn != cPlayer) {
+          stopTimer();
+        } else {
+          startTimer();
+        }
+        game.load(state);
+        board.position(state);
+      });
+
+      let totalSeconds = currentMatchTime * 60;
+      let interval;
+
+      const startTimer = function (fromZero) {
+        if (fromZero) {
+          totalSeconds = currentMatchTime * 60;
+          clearInterval(interval);
+        }
+        const timerElement = document.getElementById("timer");
+        interval = setInterval(function () {
+          const minutes = Math.floor(totalSeconds / 60);
+          let seconds = totalSeconds % 60;
+
+          const formattedTime = `${minutes
+            .toString()
+            .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+
+          timerElement.innerHTML = formattedTime;
+
+          if (totalSeconds === 0) {
+            clearInterval(interval);
+          } else {
+            totalSeconds--;
+          }
+        }, 1000);
+      };
+
+      const stopTimer = function () {
+        clearInterval(interval);
+      };
 
       socket.on("UPDATE_TOTAL_PLAYER", (totalPlayersInt) => {
         updateTotalPlayers(totalPlayersInt);

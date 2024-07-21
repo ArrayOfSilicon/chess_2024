@@ -1,13 +1,13 @@
 const { createServer } = require("http");
 const { Server } = require("socket.io");
 const functions = require("./functions");
-const express = require('express');
-
+const express = require("express");
+const bodyParser = require("body-parser");
+const session = require("express-session");
 
 const app = express();
-
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static(__dirname + '/public'));
+app.use(express.static(__dirname + "/Public"));
 
 const httpServer = createServer(app);
 const configOptions = {
@@ -28,15 +28,26 @@ function wait_for_match(duration, socket) {
       if (W_MATCH_DURATION_10.length > 0) {
         const opponent = W_MATCH_DURATION_10[0];
         let objectId = socket.id + "=>" + opponent.id;
-        console.log(objectId);
         CURRENT_MATCHES.push({
           [objectId]: {
             player1: socket,
             player2: opponent,
           },
         });
-        socket.emit('MATCH_START')
-        opponent.socket.emit('MATCH_START')
+
+        socket.join(objectId);
+        opponent.socket.join(objectId);
+
+        socket.on("SNYC_MOVE", (state, turn) => {
+          io.to(objectId).emit("SNYC_MOVE", state, turn);
+        });
+
+        opponent.socket.on("SNYC_MOVE", (state, turn) => {
+          io.to(objectId).emit("SNYC_MOVE", state, turn);
+        });
+
+        socket.emit("MATCH_START", "w");
+        opponent.socket.emit("MATCH_START", "b");
         W_MATCH_DURATION_10.shift();
       } else {
         W_MATCH_DURATION_10.push({
@@ -48,7 +59,15 @@ function wait_for_match(duration, socket) {
     case 15:
       if (W_MATCH_DURATION_15.length > 0) {
         const opponent = W_MATCH_DURATION_15[0];
-        opponent.socket.emit("MATCH_START");
+        let objectId = socket.id + "=>" + opponent.id;
+        CURRENT_MATCHES.push({
+          [objectId]: {
+            player1: socket,
+            player2: opponent,
+          },
+        });
+        socket.emit("MATCH_START", "w");
+        opponent.socket.emit("MATCH_START", "b");
         W_MATCH_DURATION_15.shift();
       } else {
         W_MATCH_DURATION_15.push({
@@ -56,11 +75,18 @@ function wait_for_match(duration, socket) {
           socket: socket,
         });
       }
-      break;
     case 20:
       if (W_MATCH_DURATION_20.length > 0) {
         const opponent = W_MATCH_DURATION_20[0];
-        opponent.socket.emit("MATCH_START");
+        let objectId = socket.id + "=>" + opponent.id;
+        CURRENT_MATCHES.push({
+          [objectId]: {
+            player1: socket,
+            player2: opponent,
+          },
+        });
+        socket.emit("MATCH_START", "w");
+        opponent.socket.emit("MATCH_START", "b");
         W_MATCH_DURATION_20.shift();
       } else {
         W_MATCH_DURATION_20.push({
