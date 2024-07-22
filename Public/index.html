@@ -218,8 +218,7 @@
           '</p><p id="timer" class="fs-1">' +
           currentMatchTime +
           ":00</p>";
-        if(player != 'w')
-        {
+        if (player == "w") {
           startTimer(true);
         }
       });
@@ -227,23 +226,53 @@
       let no = 2;
       socket.on("SNYC_MOVE", function (state, turn) {
         game.setTurn(turn);
-        if (turn != cPlayer) {
+        if (cPlayer != turn) {
           stopTimer();
         } else {
-          startTimer();
+          if (startTimerCalled) {
+            resumeTimer();
+          } else {
+            startTimer(true);
+          }
         }
+        // if (turn === "w") {
+        // } else {
+        // }
         game.load(state);
         board.position(state);
       });
 
       let totalSeconds = currentMatchTime * 60;
       let interval;
+      let startTimerCalled = false;
 
       const startTimer = function (fromZero) {
+        startTimerCalled = true;
         if (fromZero) {
           totalSeconds = currentMatchTime * 60;
           clearInterval(interval);
         }
+        const timerElement = document.getElementById("timer");
+        interval = setInterval(function () {
+          const minutes = Math.floor(totalSeconds / 60);
+          let seconds = totalSeconds % 60;
+
+          const formattedTime = `${minutes
+            .toString()
+            .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+
+          timerElement.innerHTML = formattedTime;
+
+          if (totalSeconds === 0) {
+            clearInterval(interval);
+          } else {
+            totalSeconds--;
+          }
+        }, 1000);
+      };
+
+      const resumeTimer = function () {
+        clearInterval(interval);
         const timerElement = document.getElementById("timer");
         interval = setInterval(function () {
           const minutes = Math.floor(totalSeconds / 60);
